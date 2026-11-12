@@ -1,13 +1,18 @@
 import type { Candle, Direction } from "@tradejs/types";
 import type { LondonConfig } from "./config.js";
+import { scoreLondonShort } from "./shortGate.js";
 
 export const HOUR = 3_600_000;
 export const DAY = 24 * HOUR;
 const RANGE_HOURS = 9;
 const ENTRY_HOURS = 8;
 const ATR_DAYS = 14;
+const RELATIVE_VOLUME_HOURS = 20;
 
-export type HourBar = Pick<Candle, "timestamp" | "high" | "low" | "close">;
+export type HourBar = Pick<
+  Candle,
+  "timestamp" | "high" | "low" | "close" | "volume"
+>;
 
 interface DailyBar extends HourBar {
   count: number;
@@ -29,6 +34,7 @@ export interface BreakoutSignal {
   close: number;
   exitTime: number;
   range: SessionRange;
+  shortGateScore?: number | null;
 }
 
 export interface LondonState {
@@ -128,10 +134,36 @@ function makeRange(
   };
 }
 
+function relativeVolume(hours: readonly HourBar[], signal: HourBar) {
+  const preceding = hours.slice(-RELATIVE_VOLUME_HOURS - 1, -1);
+  if (
+    preceding.length !== RELATIVE_VOLUME_HOURS ||
+    !Number.isFinite(signal.volume) ||
+    signal.volume < 0
+  ) {
+    return null;
+  }
+  const firstTimestamp = signal.timestamp - RELATIVE_VOLUME_HOURS * HOUR;
+  let total = 0;
+  for (const [index, hour] of preceding.entries()) {
+    if (
+      hour.timestamp !== firstTimestamp + index * HOUR ||
+      !Number.isFinite(hour.volume) ||
+      hour.volume < 0
+    ) {
+      return null;
+    }
+    total += hour.volume;
+  }
+  return total > 0 && Number.isFinite(total)
+    ? signal.volume / (total / RELATIVE_VOLUME_HOURS)
+    : null;
+}
+
 export function processClosedHour(
   state: LondonState,
   config: LondonConfig,
-  bar: HourBar,
+  bar: HourBar & Pick<Candle, "open">,
   canEnter = true,
 ): BreakoutSignal | null {
   if (
@@ -167,22 +199,33 @@ export function processClosedHour(
     config.LONDON_RANGE_MODE === "rolling" &&
     confirmationTime >= sessionStart &&
     confirmationTime < sessionStart + ENTRY_HOURS * HOUR
-      ? makeRange(state.hours, bar.timestamp, state.dayAtr, config)
+      ? makeRange(
+          state.hours.slice(-RANGE_HOURS),
+          bar.timestamp,
+          state.dayAtr,
+          config,
+        )
       : null;
   state.hours.push({
     timestamp: bar.timestamp,
     high: bar.high,
     low: bar.low,
     close: bar.close,
+    volume: bar.volume,
   });
-  if (state.hours.length > RANGE_HOURS) state.hours.shift();
+  const retainedHours =
+    config.LONDON_SHORT_GATE === "trained" ||
+    config.LONDON_SHORT_MAX_REL_VOLUME > 0
+      ? RELATIVE_VOLUME_HOURS + 1
+      : RANGE_HOURS;
+  if (state.hours.length > retainedHours) state.hours.shift();
 
   if (
     config.LONDON_RANGE_MODE === "fixed" &&
     confirmationTime === sessionStart
   ) {
     state.fixedRange = makeRange(
-      state.hours,
+      state.hours.slice(-RANGE_HOURS),
       sessionStart,
       state.dayAtr,
       config,
@@ -217,6 +260,28 @@ export function processClosedHour(
         ? "SHORT"
         : null;
   if (!direction) return null;
+  let shortGateScore: number | null | undefined;
+  if (direction === "SHORT") {
+    const overshootAtr = (range.shortLevel - bar.close) / range.atr;
+    const maxOvershoot = config.LONDON_SHORT_MAX_OVERSHOOT_ATR;
+    if (maxOvershoot > 0 && overshootAtr >= maxOvershoot) return null;
+
+    const trainedGate = config.LONDON_SHORT_GATE === "trained";
+    const maxVolume = config.LONDON_SHORT_MAX_REL_VOLUME;
+    const volume =
+      trainedGate || maxVolume > 0 ? relativeVolume(state.hours, bar) : null;
+    if (maxVolume > 0 && (volume === null || volume >= maxVolume)) return null;
+
+    if (trainedGate) {
+      shortGateScore = scoreLondonShort(
+        volume,
+        overshootAtr,
+        (range.high - range.low) / range.atr,
+        (bar.open - bar.close) / range.atr,
+        confirmationTime,
+      );
+    }
+  }
 
   state.attemptedDay = day;
   return {
@@ -225,5 +290,6 @@ export function processClosedHour(
     close: bar.close,
     exitTime: day + DAY + 8 * HOUR,
     range,
+    ...(shortGateScore === undefined ? {} : { shortGateScore }),
   };
 }

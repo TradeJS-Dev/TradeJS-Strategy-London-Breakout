@@ -7,6 +7,7 @@ import type {
 import type { LondonConfig } from "./config.js";
 import { HOUR, initialLondonState, processClosedHour } from "./engine.js";
 import { buildLondonFigures } from "./figures.js";
+import { SHORT_GATE_THRESHOLD } from "./shortGate.js";
 
 function protection(
   price: number,
@@ -82,6 +83,13 @@ export const createLondonCore: CreateStrategyCore<LondonConfig> = async ({
 
     runtime.exitTime = null;
     if (!signal) return strategyApi.skip("LONDON_NO_BREAKOUT");
+    const score = signal.shortGateScore;
+    if (
+      score === null ||
+      (score !== undefined && score < SHORT_GATE_THRESHOLD)
+    ) {
+      return strategyApi.skip("LONDON_SHORT_GATE_REJECT");
+    }
 
     const direction = signal.direction;
     const plan = protection(signal.close, direction, signal.range.atr, config);

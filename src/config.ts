@@ -7,6 +7,9 @@ export interface LondonConfig extends StrategyConfig {
   LONDON_ENTRY_HOUR: number;
   LONDON_MAX_RANGE_ATR: number;
   LONDON_ENTRY_BUFFER_ATR: number;
+  LONDON_SHORT_GATE: "trained" | "off";
+  LONDON_SHORT_MAX_REL_VOLUME: number;
+  LONDON_SHORT_MAX_OVERSHOOT_ATR: number;
   LONDON_STOP_ATR: number;
   LONDON_TARGET_ATR: number;
   MAX_LOSS_VALUE: number;
@@ -29,13 +32,16 @@ export const defaultConfig: LondonConfig = {
   LONDON_RANGE_MODE: "fixed",
   LONDON_ENTRY_HOUR: 8,
   LONDON_MAX_RANGE_ATR: 0.5,
-  LONDON_ENTRY_BUFFER_ATR: 0.1,
+  LONDON_ENTRY_BUFFER_ATR: 0.2,
+  LONDON_SHORT_GATE: "trained",
+  LONDON_SHORT_MAX_REL_VOLUME: 0,
+  LONDON_SHORT_MAX_OVERSHOOT_ATR: 0,
   LONDON_STOP_ATR: 0.5,
   LONDON_TARGET_ATR: 1.3,
   MAX_LOSS_VALUE: 10,
   RISK_FEE_RATE: 0.00055,
   RISK_SLIPPAGE_BPS: 2,
-  LONG: { enable: true, direction: "LONG", minRiskRatio: 0 },
+  LONG: { enable: false, direction: "LONG", minRiskRatio: 0 },
   SHORT: { enable: true, direction: "SHORT", minRiskRatio: 0 },
 };
 
@@ -73,11 +79,15 @@ export function parseConfig(input: unknown): LondonConfig {
   }
   for (const key of [
     "LONDON_ENTRY_BUFFER_ATR",
+    "LONDON_SHORT_MAX_REL_VOLUME",
+    "LONDON_SHORT_MAX_OVERSHOOT_ATR",
     "RISK_FEE_RATE",
     "RISK_SLIPPAGE_BPS",
   ] as const) {
     if (config[key] < 0) fail(key);
   }
+  if (!["trained", "off"].includes(config.LONDON_SHORT_GATE))
+    fail("LONDON_SHORT_GATE");
   if (config.LONG.direction !== "LONG") fail("LONG.direction");
   if (config.SHORT.direction !== "SHORT") fail("SHORT.direction");
   return config;

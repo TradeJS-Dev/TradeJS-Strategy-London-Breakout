@@ -22,13 +22,19 @@ const warmup = Array.from({ length: 16 * 24 - 1 }, (_, index) =>
 const session = Array.from({ length: 9 }, (_, index) => bar(time(index - 1)));
 session[0] = bar(time(-1), 104, 96);
 
+const originalConfig = {
+  LONDON_ENTRY_BUFFER_ATR: 0.1,
+  LONDON_SHORT_GATE: "off",
+  LONG: { enable: true },
+};
+
 async function core(history = [], overrides = {}) {
   const data = [...history];
   let position = null;
   let current;
   const run = await entry.createCore({
     data,
-    config: entry.parseConfig(overrides),
+    config: entry.parseConfig({ ...originalConfig, ...overrides }),
     strategyApi: {
       getCurrentPosition: async () => position,
       createStateController: (_key, initialize) => {
@@ -232,4 +238,134 @@ test("protection is reanchored to the actual fill in both directions", async () 
     assert.equal(protection.takeProfits[0].price, fill + sign * 26);
     assert.equal(result.prices.riskRatio, 2.6);
   }
+});
+
+test("short volume uses the preceding 20 H1, excludes the signal, and rejects equality", async () => {
+  const history = [...warmup, ...session].map((candle) => ({
+    ...candle,
+    volume: candle.timestamp < time(-1) ? 200 : 100,
+  }));
+  const mean = (11 * 200 + 9 * 100) / 20;
+  const config = { LONDON_SHORT_MAX_REL_VOLUME: 1.5 };
+  const reject = await core(history, config);
+  assert.equal(
+    (await reject.next({ ...bar(time(8), 101, 92, 93), volume: mean * 1.5 }))
+      .kind,
+    "skip",
+  );
+
+  const accept = await core(history, config);
+  assert.equal(
+    (
+      await accept.next({
+        ...bar(time(8), 101, 92, 93),
+        volume: mean * 1.5 - 1,
+      })
+    ).kind,
+    "entry",
+  );
+
+  const noVolume = await core([...warmup, ...session], config);
+  assert.equal((await noVolume.next(bar(time(8), 101, 92, 93))).kind, "skip");
+});
+
+test("overshoot rejects equality and leaves a fresh short cross eligible", async () => {
+  const config = { LONDON_SHORT_MAX_OVERSHOOT_ATR: 0.1 };
+  const strategy = await core([...warmup, ...session], config);
+  // The level is 94, daily ATR is 20, so a close at 92 is exactly 0.10 ATR below it.
+  assert.equal((await strategy.next(bar(time(8), 101, 91, 92))).kind, "skip");
+  assert.equal((await strategy.next(bar(time(9), 93, 90, 93))).kind, "skip");
+  assert.equal((await strategy.next(bar(time(10)))).kind, "skip");
+  assert.equal(
+    (await strategy.next(bar(time(11), 101, 92, 93))).direction,
+    "SHORT",
+  );
+});
+
+test("both filters are required for shorts and leave longs unaffected", async () => {
+  const history = [...warmup, ...session].map((candle) => ({
+    ...candle,
+    volume: 100,
+  }));
+  const config = {
+    LONDON_SHORT_MAX_REL_VOLUME: 1.5,
+    LONDON_SHORT_MAX_OVERSHOOT_ATR: 0.1,
+  };
+  for (const [close, volume, kind] of [
+    [92, 100, "skip"],
+    [93, 151, "skip"],
+    [93, 149, "entry"],
+  ]) {
+    const strategy = await core(history, config);
+    assert.equal(
+      (await strategy.next({ ...bar(time(8), 102, 90, close), volume })).kind,
+      kind,
+    );
+  }
+  const long = await core(history, config);
+  assert.equal(
+    (await long.next({ ...bar(time(8), 111, 99, 108), volume: 500 })).direction,
+    "LONG",
+  );
+});
+
+test("default candidate reproduces the frozen short score and rejects an early signal", async () => {
+  const history = [...warmup, ...session].map((candle) => ({
+    ...candle,
+    volume: 100,
+  }));
+  const shortSignal = (hour, volume = 100) => ({
+    ...bar(time(hour), 101, 90, 91),
+    open: 100,
+    volume,
+  });
+  const late = history.concat(
+    Array.from({ length: 4 }, (_, i) => ({ ...bar(time(8 + i)), volume: 100 })),
+  );
+
+  const accepted = await core(late, entry.defaults);
+  const decision = await accepted.next(shortSignal(12));
+  assert.equal(decision.kind, "entry");
+  assert.equal(decision.direction, "SHORT");
+  assert.equal(
+    decision.additionalIndicators.londonBreakout.range.shortLevel,
+    92,
+  );
+  assert.ok(
+    Math.abs(
+      decision.additionalIndicators.londonBreakout.shortGateScore -
+        1.6882466284066582,
+    ) < 1e-12,
+  );
+
+  const busy = await core(late, entry.defaults);
+  assert.equal(
+    (await busy.next(shortSignal(12, 800))).code,
+    "LONDON_SHORT_GATE_REJECT",
+  );
+
+  const early = await core(history, entry.defaults);
+  const first = shortSignal(8);
+  assert.equal((await early.next(first)).code, "LONDON_SHORT_GATE_REJECT");
+  const restored = await core([...history, first], entry.defaults);
+  for (const strategy of [early, restored]) {
+    for (let hour = 9; hour < 12; hour++) {
+      await strategy.next({ ...bar(time(hour)), volume: 100 });
+    }
+    assert.equal(
+      (await strategy.next(shortSignal(12))).code,
+      "LONDON_NO_BREAKOUT",
+    );
+  }
+});
+
+test("default candidate requires valid prior volume and disables longs", async () => {
+  const history = [...warmup, ...session];
+  const missing = await core(history, entry.defaults);
+  assert.equal(
+    (await missing.next({ ...bar(time(8), 101, 90, 91), volume: 100 })).code,
+    "LONDON_SHORT_GATE_REJECT",
+  );
+  const long = await core(history, entry.defaults);
+  assert.equal((await long.next(bar(time(8), 112, 98, 109))).kind, "skip");
 });
