@@ -412,20 +412,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tradejs/core@npm:3.1.29-beta.292":
-  version: 3.1.29-beta.292
-  resolution: "@tradejs/core@npm:3.1.29-beta.292"
+"@tradejs/core@npm:^3.1.28":
+  version: 3.1.28
+  resolution: "@tradejs/core@npm:3.1.28"
   dependencies:
-    "@tradejs/types": "npm:^3.1.29-beta.292"
+    "@tradejs/types": "npm:^3.1.28"
     date-fns: "npm:^3.6.0"
     fast-technical-indicators: "npm:^1.1.4"
     klinecharts: "npm:10.0.0-alpha9"
     lodash: "npm:^4.18.1"
-  checksum: 10c0/ec769555cafe25323870848a4fdc2a817cd5d9a5e148705d2ce76d4160619f1b4789a7dc2280d0d5bb33554da0eb4d211e9bcf77aee521739a9bd03c61bc25d2
+  checksum: 10c0/4aa626871f92becb3ca2d473211d448bd053303fb5ae7a4733c10da3a753babc86954950376cf3f84cd5b3ddf7ba9542d00bf7c6aee81ded670c321fbb0f9dad
   languageName: node
   linkType: hard
 
-"@tradejs/strategy-kit@npm:3.0.6":
+"@tradejs/strategy-kit@npm:^3.0.6":
   version: 3.0.6
   resolution: "@tradejs/strategy-kit@npm:3.0.6"
   peerDependencies:
@@ -439,23 +439,23 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@tradejs/strategy-london-breakout@workspace:."
   dependencies:
-    "@tradejs/core": "npm:3.1.29-beta.292"
-    "@tradejs/strategy-kit": "npm:3.0.6"
-    "@tradejs/types": "npm:3.1.29-beta.292"
+    "@tradejs/core": "npm:^3.1.28"
+    "@tradejs/strategy-kit": "npm:^3.0.6"
+    "@tradejs/types": "npm:^3.1.28"
     prettier: "npm:^3.6.2"
     tsup: "npm:^8.5.1"
     typescript: "npm:^5.9.2"
   peerDependencies:
-    "@tradejs/core": 3.1.29-beta.292
-    "@tradejs/strategy-kit": 3.0.6
-    "@tradejs/types": 3.1.29-beta.292
+    "@tradejs/core": ^3.1.28
+    "@tradejs/strategy-kit": ^3.0.6
+    "@tradejs/types": ^3.1.28
   languageName: unknown
   linkType: soft
 
-"@tradejs/types@npm:3.1.29-beta.292, @tradejs/types@npm:^3.1.29-beta.292":
-  version: 3.1.29-beta.292
-  resolution: "@tradejs/types@npm:3.1.29-beta.292"
-  checksum: 10c0/bb6cbb16cfbf59d9575d265b7bbd51ee98663fb5444fa8555231b5944a15c7fb81c8f0c46f2a22286722fd88d891aed9ab8c4687d53ed9596344661dd3deecca
+"@tradejs/types@npm:^3.1.28":
+  version: 3.1.28
+  resolution: "@tradejs/types@npm:3.1.28"
+  checksum: 10c0/e350c8355e87eff29b05ed5b09a4d68f338bd5f4ee608aa7019ec39c4769a1b3276d871e4cc8ab85bdc21886b75b78169597b0c083cbdfa5b2c55c66d0deceb1
   languageName: node
   linkType: hard
 
