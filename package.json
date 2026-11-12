@@ -1,7 +1,6 @@
 {
   "name": "@tradejs/strategy-london-breakout",
-  "version": "0.0.0-development",
-  "private": true,
+  "version": "0.0.0",
   "description": "UTC session range breakout strategy for TradeJS.",
   "keywords": [
     "ai",
@@ -40,10 +39,19 @@
     "checks": "yarn format:check && yarn typecheck && yarn build && yarn test",
     "prettify": "prettier --write ."
   },
-  "license": "UNLICENSED",
+  "license": "BUSL-1.1",
   "peerDependencies": {
     "@tradejs/core": "3.1.29-beta.292",
     "@tradejs/strategy-kit": "3.0.6",
     "@tradejs/types": "3.1.29-beta.292"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TradeJS-Dev/TradeJS-Strategy-London-Breakout.git"
+  },
+  "homepage": "https://tradejs.dev",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }
