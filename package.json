@@ -1,6 +1,6 @@
 {
   "name": "@tradejs/strategy-london-breakout",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "UTC session range breakout strategy for TradeJS.",
   "keywords": [
     "ai",
