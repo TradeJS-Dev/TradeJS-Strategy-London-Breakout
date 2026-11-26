@@ -1,7 +1,7 @@
 {
   "name": "@tradejs/strategy-london-breakout",
   "version": "0.0.2",
-  "description": "UTC session range breakout strategy for TradeJS.",
+  "description": "Looks for an hourly close beyond the morning range, measured from nine hourly candles at 08:00 UTC.",
   "keywords": [
     "ai",
     "claude",
